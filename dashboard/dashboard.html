@@ -262,6 +262,44 @@
             box-shadow: 0 0 6px rgba(255, 170, 0, 0.8);
         }
         
+        /* Red boat marker for spawned boats */
+        .boat-marker-red {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 20px solid #ff3333;
+            position: relative;
+            transform-origin: center center;
+            transition: transform 0.3s ease;
+            filter: drop-shadow(0 0 8px rgba(255, 51, 51, 0.6));
+        }
+        
+        .boat-marker-red::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 20px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #cc0000;
+        }
+        
+        .boat-marker-red::after {
+            content: '';
+            position: absolute;
+            left: -3px;
+            top: -2px;
+            width: 6px;
+            height: 6px;
+            background: #ffaa00;
+            border-radius: 50%;
+            border: 1px solid #0a0a0a;
+            box-shadow: 0 0 6px rgba(255, 170, 0, 0.8);
+        }
+        
         /* Path Trail */
         .path-trail {
             stroke: #00ff88;
@@ -373,6 +411,13 @@
         .position-display {
             font-size: 12px;
             line-height: 1.6;
+        }
+        
+        /* AIS Vessel Icons */
+        .ais-vessel-icon {
+            background: transparent;
+            border: none;
+            text-align: center;
         }
     </style>
 </head>
@@ -561,6 +606,19 @@
         // For calculating turn rate
         let lastHeading = 0;
         let lastHeadingTime = Date.now();
+        
+        // AIS vessels
+        let aisVessels = new Map();  // MMSI -> marker
+        let aisWebSocket = null;
+        
+        // Spawned boats (non-main WAM-V boats)
+        let spawnedBoats = new Map();  // boat_name -> {marker, topic}
+        
+        // Sydney Regatta origin for coordinate conversion
+        const SYDNEY_ORIGIN_LAT = -33.724223;
+        const SYDNEY_ORIGIN_LON = 150.679736;
+        const METERS_PER_DEG_LAT = 111000.0;
+        const METERS_PER_DEG_LON = 111000.0 * Math.cos(SYDNEY_ORIGIN_LAT * Math.PI / 180);
         
         // ============================================
         // MAP INITIALIZATION
@@ -1068,6 +1126,126 @@
             
             updateTopicsStatus();
             console.log('✅ All topics subscribed');
+            
+            // Subscribe to spawned boats (wamv_boat_1 through wamv_boat_20)
+            subscribeToSpawnedBoats();
+        }
+        
+        // ============================================
+        // SPAWNED BOATS VISUALIZATION
+        // ============================================
+        function subscribeToSpawnedBoats() {
+            if (!ros || !rosConnected) {
+                console.warn('⚠️ Cannot subscribe to spawned boats: ROS not connected');
+                return;
+            }
+            
+            console.log('🚤 Subscribing to spawned boats (wamv_boat_1 to wamv_boat_20)...');
+            
+            // Subscribe to GPS topics for each spawned boat (published by spawned_boats_publisher.py)
+            for (let i = 1; i <= 20; i++) {
+                const boatName = `wamv_boat_${i}`;
+                
+                // Subscribe to GPS fix topic (same structure as main boat)
+                const gpsTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: `/${boatName}/sensors/gps/gps/fix`,
+                    messageType: 'sensor_msgs/NavSatFix'
+                });
+                
+                gpsTopic.subscribe((message) => {
+                    try {
+                        if (message && message.latitude !== undefined && message.longitude !== undefined) {
+                            if (message.latitude !== 0 && message.longitude !== 0) {
+                                const lat = message.latitude;
+                                const lon = message.longitude;
+                                
+                                // Get heading from IMU if available, otherwise use 0
+                                let heading = 0;
+                                
+                                updateSpawnedBoat(boatName, lat, lon, heading);
+                            }
+                        }
+                    } catch (error) {
+                        // Silently ignore errors (boat might not exist yet)
+                    }
+                });
+                
+                // Also subscribe to IMU for heading
+                const imuTopic = new ROSLIB.Topic({
+                    ros: ros,
+                    name: `/${boatName}/sensors/imu/imu/data`,
+                    messageType: 'sensor_msgs/Imu'
+                });
+                
+                imuTopic.subscribe((message) => {
+                    try {
+                        if (message && message.orientation && spawnedBoats.has(boatName)) {
+                            const q = message.orientation;
+                            const yaw = Math.atan2(
+                                2.0 * (q.w * q.z + q.x * q.y),
+                                1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+                            );
+                            const heading = (yaw * 180 / Math.PI + 360) % 360;
+                            
+                            const boat = spawnedBoats.get(boatName);
+                            if (boat && boat.marker) {
+                                const indicator = document.getElementById(`boat-heading-${boatName}`);
+                                if (indicator) {
+                                    indicator.style.transform = `rotate(${heading - 90}deg)`;
+                                }
+                                boat.heading = heading;
+                            }
+                        }
+                    } catch (error) {
+                        // Silently ignore errors
+                    }
+                });
+            }
+            
+            console.log('✅ Subscribed to spawned boat GPS topics');
+        }
+        
+        function updateSpawnedBoat(boatName, lat, lon, heading) {
+            // Skip if coordinates are invalid
+            if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+                return;
+            }
+            
+            if (!spawnedBoats.has(boatName)) {
+                // Create new red boat marker
+                const redBoatIcon = L.divIcon({
+                    className: 'boat-marker-container',
+                    html: `<div class="boat-marker-red" id="boat-heading-${boatName}" style="transform: rotate(${heading - 90}deg);"></div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                
+                const marker = L.marker([lat, lon], {
+                    icon: redBoatIcon
+                }).addTo(mainMap);
+                
+                marker.bindPopup(`<b>${boatName}</b><br>Non-main boat`);
+                
+                spawnedBoats.set(boatName, {
+                    marker: marker,
+                    heading: heading
+                });
+                
+                console.log(`🚤 Added spawned boat: ${boatName} at ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+            } else {
+                // Update existing boat
+                const boat = spawnedBoats.get(boatName);
+                boat.marker.setLatLng([lat, lon]);
+                
+                // Update heading rotation
+                const indicator = document.getElementById(`boat-heading-${boatName}`);
+                if (indicator) {
+                    indicator.style.transform = `rotate(${heading - 90}deg)`;
+                }
+                
+                boat.heading = heading;
+            }
         }
         
         // ============================================
@@ -1300,6 +1478,9 @@
             // Connect to ROS
             connectROS();
             
+            // Connect to AIS
+            connectAIS();
+            
             // Add test waypoints (for demo)
             console.log('📍 Adding test waypoints...');
             addWaypoint(-33.7225, 150.6745, 1);
@@ -1314,6 +1495,114 @@
             
             console.log('✅ Dashboard initialized');
             console.log('📊 Waiting for ROS connection and data...');
+        }
+        
+        // ============================================
+        // AIS VESSEL VISUALIZATION
+        // ============================================
+        function connectAIS() {
+            console.log('🚢 Connecting to AIS proxy at ws://localhost:9091...');
+            
+            try {
+                aisWebSocket = new WebSocket('ws://localhost:9091');
+                
+                aisWebSocket.onopen = () => {
+                    console.log('✅ AIS WebSocket connected');
+                };
+                
+                aisWebSocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'vessel_update' && data.data) {
+                            updateAISVessel(data.mmsi, data.data);
+                        }
+                    } catch (error) {
+                        console.error('❌ Error parsing AIS message:', error);
+                    }
+                };
+                
+                aisWebSocket.onerror = (error) => {
+                    console.error('❌ AIS WebSocket error:', error);
+                };
+                
+                aisWebSocket.onclose = () => {
+                    console.log('⚠️ AIS WebSocket closed, reconnecting in 5s...');
+                    setTimeout(connectAIS, 5000);
+                };
+            } catch (error) {
+                console.error('❌ Failed to create AIS connection:', error);
+                setTimeout(connectAIS, 5000);
+            }
+        }
+        
+        function updateAISVessel(mmsi, vesselData) {
+            const { latitude, longitude, heading, name, speed } = vesselData;
+            
+            if (!latitude || !longitude) {
+                return;
+            }
+            
+            // Create or update vessel marker
+            if (!aisVessels.has(mmsi)) {
+                // Create new vessel marker
+                const vesselIcon = L.divIcon({
+                    className: 'ais-vessel-icon',
+                    html: `<div style="
+                        transform: rotate(${heading}deg);
+                        color: #ff6b6b;
+                        font-size: 16px;
+                        font-weight: bold;
+                        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+                    ">▲</div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+                
+                const marker = L.marker([latitude, longitude], { 
+                    icon: vesselIcon,
+                    zIndexOffset: 1000  // Above other markers
+                }).addTo(mainMap);
+                
+                // Create popup with vessel info
+                const popupContent = `
+                    <b>${name || `Ship ${mmsi}`}</b><br>
+                    MMSI: ${mmsi}<br>
+                    Speed: ${speed ? speed.toFixed(1) : 'N/A'} knots<br>
+                    Heading: ${heading ? heading.toFixed(0) : 'N/A'}°
+                `;
+                marker.bindPopup(popupContent);
+                
+                aisVessels.set(mmsi, marker);
+                console.log(`🚢 Added AIS vessel: ${name || mmsi} at ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+            } else {
+                // Update existing vessel
+                const marker = aisVessels.get(mmsi);
+                marker.setLatLng([latitude, longitude]);
+                
+                // Update icon with new heading
+                const vesselIcon = L.divIcon({
+                    className: 'ais-vessel-icon',
+                    html: `<div style="
+                        transform: rotate(${heading}deg);
+                        color: #ff6b6b;
+                        font-size: 16px;
+                        font-weight: bold;
+                        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+                    ">▲</div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+                marker.setIcon(vesselIcon);
+                
+                // Update popup
+                const popupContent = `
+                    <b>${name || `Ship ${mmsi}`}</b><br>
+                    MMSI: ${mmsi}<br>
+                    Speed: ${speed ? speed.toFixed(1) : 'N/A'} knots<br>
+                    Heading: ${heading ? heading.toFixed(0) : 'N/A'}°
+                `;
+                marker.setPopupContent(popupContent);
+            }
         }
         
         // Start when page loads
