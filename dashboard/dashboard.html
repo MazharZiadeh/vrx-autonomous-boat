@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAM-V Boat Dashboard</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-minimap@3.6.1/dist/Control.MiniMap.min.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background: #0a0a0a;
+            color: #e0e0e0;
+        }
+        
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        /* Map Section - 75% width */
+        .map-section {
+            flex: 0 0 75%;
+            position: relative;
+            background: #0a0a0a;
+        }
+        
+        #main-map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Telemetry Sidebar - 25% width */
+        .telemetry-sidebar {
+            flex: 0 0 25%;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 25px;
+            overflow-y: auto;
+            border-left: 1px solid #333333;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        .sidebar-header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333333;
+        }
+        
+        .sidebar-header h2 {
+            color: #00ff88;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 28px;
+            margin: 0;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        .telemetry-section {
+            margin-bottom: 25px;
+        }
+        
+        .section-title {
+            font-size: 11px;
+            color: #00ff88;
+            font-family: 'Rajdhani', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        
+        .telemetry-panel {
+            background: #0f0f0f;
+            border-radius: 4px;
+            padding: 15px;
+            border: 1px solid #333333;
+            border-left: 2px solid #00ff88;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 4px 0;
+        }
+        
+        .telemetry-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .telemetry-label-small {
+            font-size: 11px;
+            color: #888;
+            flex: 1;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+        }
+        
+        .telemetry-value-small {
+            font-size: 15px;
+            font-weight: 500;
+            color: #00ff88;
+            font-family: 'Roboto Mono', monospace;
+            text-align: right;
+            min-width: 90px;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+        }
+        
+        .telemetry-value-small.updated {
+            animation: valueUpdate 0.6s ease;
+        }
+        
+        @keyframes valueUpdate {
+            0% { 
+                background-color: transparent;
+                text-shadow: 0 0 0 rgba(0, 255, 136, 0);
+            }
+            50% { 
+                background-color: rgba(0, 255, 136, 0.1);
+                text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            }
+            100% { 
+                background-color: transparent;
+                text-shadow: 0 0 0 rgba(0, 255, 136, 0);
+            }
+        }
+        
+        .telemetry-unit-small {
+            font-size: 11px;
+            color: #666;
+            margin-left: 4px;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Status rows */
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .status-label {
+            font-size: 11px;
+            color: #888;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+        }
+        
+        .status-value {
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'Roboto Mono', monospace;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-value.status-connected {
+            color: #00ff88;
+            text-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+        }
+        
+        .status-value.status-disconnected {
+            color: #ff3333;
+            text-shadow: 0 0 8px rgba(255, 51, 51, 0.5);
+        }
+        
+        .status-value.status-warning {
+            color: #ffaa00;
+            text-shadow: 0 0 8px rgba(255, 170, 0, 0.5);
+        }
+        
+        .status-text {
+            font-size: 12px;
+            font-style: italic;
+        }
+        
+        .waypoint-progress {
+            background: #0a0a0a;
+            border-radius: 2px;
+            height: 4px;
+            overflow: hidden;
+            margin-top: 12px;
+            border: 1px solid #333333;
+        }
+        
+        .waypoint-progress-bar {
+            background: linear-gradient(90deg, #00ff88 0%, #00cc6a 100%);
+            height: 100%;
+            transition: width 0.4s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        /* Boat Marker - Rotating Triangle */
+        .boat-marker-container {
+            background: transparent;
+            border: none;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .boat-marker {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 20px solid #00ff88;
+            position: relative;
+            transform-origin: center center;
+            transition: transform 0.3s ease;
+            filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.6));
+        }
+        
+        .boat-marker::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 20px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #00cc6a;
+        }
+        
+        .boat-marker::after {
+            content: '';
+            position: absolute;
+            left: -3px;
+            top: -2px;
+            width: 6px;
+            height: 6px;
+            background: #ffaa00;
+            border-radius: 50%;
+            border: 1px solid #0a0a0a;
+            box-shadow: 0 0 6px rgba(255, 170, 0, 0.8);
+        }
+        
+        /* Path Trail */
+        .path-trail {
+            stroke: #00ff88;
+            stroke-width: 3;
+            fill: none;
+            opacity: 0.7;
+            filter: drop-shadow(0 0 4px rgba(0, 255, 136, 0.5));
+        }
+        
+        /* Planned Path */
+        .planned-path {
+            stroke: #ffaa00;
+            stroke-width: 2;
+            stroke-dasharray: 10, 5;
+            fill: none;
+            opacity: 0.8;
+            filter: drop-shadow(0 0 4px rgba(255, 170, 0, 0.4));
+        }
+        
+        /* MiniMap Styling */
+        .leaflet-control-minimap {
+            border: 1px solid #333333;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+        }
+        
+        /* MiniMap viewport rectangle */
+        .leaflet-control-minimap .leaflet-control-minimap-viewport {
+            border: 2px solid #00ff88;
+            background: rgba(0, 255, 136, 0.15);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
+        
+        /* Scrollbar */
+        .telemetry-sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .telemetry-sidebar::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        
+        .telemetry-sidebar::-webkit-scrollbar-thumb {
+            background: #333333;
+            border-radius: 3px;
+        }
+        
+        .telemetry-sidebar::-webkit-scrollbar-thumb:hover {
+            background: #00ff88;
+        }
+        
+        /* Debug Panel */
+        #debug-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            width: 400px;
+            max-height: 80vh;
+            background: rgba(10, 10, 10, 0.95);
+            border: 1px solid #333333;
+            border-left: 2px solid #00ff88;
+            border-radius: 4px;
+            padding: 15px;
+            color: #e0e0e0;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 11px;
+            z-index: 10000;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+        }
+        
+        #debug-panel h3 {
+            color: #00ff88;
+            font-family: 'Rajdhani', sans-serif;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        
+        .debug-section {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333333;
+        }
+        
+        .debug-section:last-child {
+            border-bottom: none;
+        }
+        
+        .debug-section strong {
+            color: #00ff88;
+        }
+        
+        /* Position display */
+        .position-display {
+            font-size: 12px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Map Section (75%) -->
+        <div class="map-section">
+            <div id="main-map"></div>
+        </div>
+        
+        <!-- Telemetry Sidebar (25%) -->
+        <div class="telemetry-sidebar">
+            <div class="sidebar-header">
+                <h2>🚤 WAM-V</h2>
+            </div>
+            
+            <!-- 1. CONNECTION STATUS -->
+            <div class="telemetry-section">
+                <div class="section-title">Connection Status</div>
+                <div class="telemetry-panel">
+                    <div class="status-row">
+                        <span class="status-label">ROS:</span>
+                        <span id="ros-status" class="status-value status-disconnected">Disconnected ✗</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Topics:</span>
+                        <span id="topics-status" class="status-value">0 / 0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 2. POSITION DATA -->
+            <div class="telemetry-section">
+                <div class="section-title">Position Data</div>
+                <div class="telemetry-panel">
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Latitude:</span>
+                        <span id="lat-value" class="telemetry-value-small">--</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Longitude:</span>
+                        <span id="lon-value" class="telemetry-value-small">--</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Altitude:</span>
+                        <span id="altitude-value" class="telemetry-value-small">--</span>
+                        <span class="telemetry-unit-small">m</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 3. MOTION DATA -->
+            <div class="telemetry-section">
+                <div class="section-title">Motion Data</div>
+                <div class="telemetry-panel">
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Speed:</span>
+                        <span id="speed-value" class="telemetry-value-small">0.00</span>
+                        <span class="telemetry-unit-small">knots</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Heading:</span>
+                        <span id="heading-value" class="telemetry-value-small">000</span>
+                        <span class="telemetry-unit-small">°</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Turn Rate:</span>
+                        <span id="turn-rate-value" class="telemetry-value-small">0.0</span>
+                        <span class="telemetry-unit-small">°/s</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 4. ENVIRONMENT -->
+            <div class="telemetry-section">
+                <div class="section-title">Environment</div>
+                <div class="telemetry-panel">
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Wind Direction:</span>
+                        <span id="wind-direction-full" class="telemetry-value-small">--</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Wind Speed:</span>
+                        <span id="wind-speed-value" class="telemetry-value-small">--</span>
+                        <span class="telemetry-unit-small">knots</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Wave Height:</span>
+                        <span id="wave-height-value" class="telemetry-value-small">N/A</span>
+                        <span class="telemetry-unit-small">m</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 5. MISSION STATUS -->
+            <div class="telemetry-section">
+                <div class="section-title">Mission Status</div>
+                <div class="telemetry-panel">
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Current WP:</span>
+                        <span id="waypoint-current" class="telemetry-value-small">--</span>
+                        <span class="telemetry-unit-small">/ <span id="waypoint-total">--</span></span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Distance:</span>
+                        <span id="waypoint-distance" class="telemetry-value-small">--</span>
+                        <span class="telemetry-unit-small">m</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">ETA:</span>
+                        <span id="waypoint-eta" class="telemetry-value-small">--</span>
+                    </div>
+                    <div class="telemetry-row">
+                        <span class="telemetry-label-small">Status:</span>
+                        <span id="mission-status" class="telemetry-value-small status-text">Waiting...</span>
+                    </div>
+                    <div class="waypoint-progress" style="margin-top: 10px;">
+                        <div class="waypoint-progress-bar" id="waypoint-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Debug Panel -->
+    <div id="debug-panel">
+        <h3>🔍 Debug Panel (Press 'D' to toggle)</h3>
+        <div id="debug-panel-content"></div>
+    </div>
+    
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet MiniMap Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-minimap@3.6.1/dist/Control.MiniMap.min.js"></script>
+    
+    <!-- ROSLIB.js for ROS WebSocket -->
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1.3.0/build/roslib.min.js"></script>
+    
+    <script>
+        // ============================================
+        // GLOBAL VARIABLES
+        // ============================================
+        let mainMap, miniMap;
+        let boatMarker, boatIcon;
+        let pathTrail = [];
+        let pathPolyline = null;
+        let waypointMarkers = [];
+        let plannedPathPolyline = null;
+        
+        // Boat state
+        let boatState = {
+            position: { lat: -33.722, lon: 150.674, alt: 0 },  // Sydney Regatta default
+            heading: 0,
+            speed: 0,
+            turnRate: 0,
+            wind: { direction: 0, speed: 0 },
+            waveHeight: null,
+            waypoint: { current: 0, total: 0, distance: 0, eta: 0, status: 'Waiting...' }
+        };
+        
+        // ROS connection
+        let ros = null;
+        let rosConnected = false;
+        let subscribedTopics = 0;
+        let availableTopics = 0;
+        let connectionRetries = 0;
+        let maxRetries = 10;
+        let retryInterval = 3000; // 3 seconds
+        
+        // Topic tracking
+        let topicStatus = {
+            '/wamv/sensors/gps/gps/fix': { subscribed: false, lastMessage: null, messageCount: 0 },
+            '/wamv/sensors/imu/imu/data': { subscribed: false, lastMessage: null, messageCount: 0 },
+            '/wamv/pose': { subscribed: false, lastMessage: null, messageCount: 0 },
+            '/vrx/debug/wind/direction': { subscribed: false, lastMessage: null, messageCount: 0 },
+            '/vrx/debug/wind/speed': { subscribed: false, lastMessage: null, messageCount: 0 }
+        };
+        
+        // Debug panel
+        let debugPanelVisible = false;
+        
+        // For calculating turn rate
+        let lastHeading = 0;
+        let lastHeadingTime = Date.now();
+        
+        // ============================================
+        // MAP INITIALIZATION
+        // ============================================
+        function initMaps() {
+            console.log('🗺️ Initializing maps...');
+            
+            // Initialize main map centered on Sydney Regatta
+            mainMap = L.map('main-map', {
+                center: [-33.722, 150.674],
+                zoom: 15,
+                zoomControl: true
+            });
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(mainMap);
+            
+            console.log('✅ Main map initialized at:', [-33.722, 150.674]);
+            
+            // Create boat icon (rotating triangle showing heading)
+            boatIcon = L.divIcon({
+                className: 'boat-marker-container',
+                html: '<div class="boat-marker" id="boat-heading-indicator"></div>',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]  // Center anchor for smooth rotation
+            });
+            
+            // Add boat marker at initial position
+            boatMarker = L.marker([-33.722, 150.674], { 
+                icon: boatIcon
+            }).addTo(mainMap);
+            
+            console.log('✅ Boat marker added (rotating triangle)');
+            
+            // Initialize MiniMap
+            const miniMapLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                minZoom: 0,
+                maxZoom: 13,
+                attribution: '© OpenStreetMap contributors'
+            });
+            
+            miniMap = new L.Control.MiniMap(miniMapLayer, {
+                toggleDisplay: true,      // Toggle button to hide/show
+                minimized: false,         // Start expanded
+                position: 'bottomright',  // Bottom-right corner
+                width: 150,              // 150px width
+                height: 150,             // 150px height
+                zoomLevelOffset: -5       // Shows 5 zoom levels more zoomed out
+            }).addTo(mainMap);
+            
+            console.log('✅ MiniMap initialized (150x150, zoom offset -5, bottom-right)');
+        }
+        
+        // ============================================
+        // ROS CONNECTION WITH RETRY LOGIC
+        // ============================================
+        function connectROS() {
+            console.log(`🔌 Connecting to ROS at ws://localhost:9090... (Attempt ${connectionRetries + 1}/${maxRetries})`);
+            
+            try {
+                ros = new ROSLIB.Ros({
+                    url: 'ws://localhost:9090'
+                });
+                
+                ros.on('connection', () => {
+                    console.log('✅ Connected to ROS!');
+                    rosConnected = true;
+                    connectionRetries = 0; // Reset retry counter on success
+                    updateConnectionStatus(true);
+                    queryAvailableTopics();
+                    subscribeToTopics();
+                });
+                
+                ros.on('error', (error) => {
+                    console.error('❌ ROS Error:', error);
+                    rosConnected = false;
+                    updateConnectionStatus(false);
+                    handleConnectionFailure();
+                });
+                
+                ros.on('close', () => {
+                    console.log('⚠️ Disconnected from ROS');
+                    rosConnected = false;
+                    updateConnectionStatus(false);
+                    handleConnectionFailure();
+                });
+            } catch (error) {
+                console.error('❌ Failed to create ROS connection:', error);
+                handleConnectionFailure();
+            }
+        }
+        
+        function handleConnectionFailure() {
+            connectionRetries++;
+            if (connectionRetries < maxRetries) {
+                console.log(`⏳ Retrying connection in ${retryInterval/1000} seconds... (${connectionRetries}/${maxRetries})`);
+                setTimeout(() => {
+                    connectROS();
+                }, retryInterval);
+            } else {
+                console.error('❌ Max retries reached. Please check if rosbridge is running.');
+                updateConnectionStatus(false);
+            }
+        }
+        
+        function queryAvailableTopics() {
+            // Try to get topic list from rosbridge
+            if (ros && rosConnected) {
+                try {
+                    const topicsService = new ROSLIB.Service({
+                        ros: ros,
+                        name: '/rosapi/topics',
+                        serviceType: 'rosapi/Topics'
+                    });
+                    
+                    const request = new ROSLIB.ServiceRequest({});
+                    topicsService.callService(request, (result) => {
+                        if (result && result.topics) {
+                            availableTopics = result.topics.length;
+                            console.log(`📊 Found ${availableTopics} available topics`);
+                            updateTopicsStatus();
+                        }
+                    });
+                } catch (error) {
+                    console.warn('⚠️ Could not query topics (rosapi may not be available):', error);
+                    availableTopics = 10; // Fallback estimate
+                }
+            }
+        }
+        
+        function updateConnectionStatus(connected) {
+            const rosStatusEl = document.getElementById('ros-status');
+            if (connected) {
+                rosStatusEl.textContent = 'Connected ✓';
+                rosStatusEl.className = 'status-value status-connected';
+            } else {
+                rosStatusEl.textContent = 'Disconnected ✗';
+                rosStatusEl.className = 'status-value status-disconnected';
+            }
+            updateTopicsStatus();
+        }
+        
+        function updateTopicsStatus() {
+            const topicsStatusEl = document.getElementById('topics-status');
+            topicsStatusEl.textContent = `${subscribedTopics} / ${availableTopics}`;
+        }
+        
+        // ============================================
+        // ROS TOPIC SUBSCRIPTIONS
+        // ============================================
+        function subscribeToTopics() {
+            if (!ros || !rosConnected) {
+                console.warn('⚠️ Cannot subscribe: ROS not connected');
+                return;
+            }
+            
+            console.log('📡 Subscribing to ROS topics...');
+            
+            // GPS Position
+            const gpsTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/wamv/sensors/gps/gps/fix',
+                messageType: 'sensor_msgs/NavSatFix'
+            });
+            
+            gpsTopic.subscribe((message) => {
+                try {
+                    topicStatus['/wamv/sensors/gps/gps/fix'].lastMessage = Date.now();
+                    topicStatus['/wamv/sensors/gps/gps/fix'].messageCount++;
+                    
+                    if (message && message.latitude !== undefined && message.longitude !== undefined) {
+                        if (message.latitude !== 0 && message.longitude !== 0) {
+                            boatState.position = {
+                                lat: message.latitude,
+                                lon: message.longitude,
+                                alt: message.altitude || 0
+                            };
+                            updateBoatPosition();
+                            updatePositionTelemetry();
+                        } else {
+                            console.warn('⚠️ GPS data has zero coordinates, ignoring');
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Error processing GPS message:', error);
+                }
+            });
+            
+            topicStatus['/wamv/sensors/gps/gps/fix'].subscribed = true;
+            subscribedTopics++;
+            console.log('✅ Subscribed to /wamv/sensors/gps/gps/fix');
+            
+            // IMU Data (for heading)
+            const imuTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/wamv/sensors/imu/imu/data',
+                messageType: 'sensor_msgs/Imu'
+            });
+            
+            imuTopic.subscribe((message) => {
+                try {
+                    topicStatus['/wamv/sensors/imu/imu/data'].lastMessage = Date.now();
+                    topicStatus['/wamv/sensors/imu/imu/data'].messageCount++;
+                    
+                    if (message && message.orientation) {
+                        // Extract heading from quaternion
+                        const q = message.orientation;
+                        const yaw = Math.atan2(
+                            2.0 * (q.w * q.z + q.x * q.y),
+                            1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+                        );
+                        const newHeading = (yaw * 180 / Math.PI + 360) % 360;
+                        
+                        // Calculate turn rate
+                        const now = Date.now();
+                        const dt = (now - lastHeadingTime) / 1000.0;
+                        if (dt > 0 && lastHeadingTime > 0) {
+                            let headingDiff = newHeading - lastHeading;
+                            // Handle wrap-around
+                            if (headingDiff > 180) headingDiff -= 360;
+                            if (headingDiff < -180) headingDiff += 360;
+                            boatState.turnRate = headingDiff / dt;
+                        }
+                        
+                        boatState.heading = newHeading;
+                        lastHeading = newHeading;
+                        lastHeadingTime = now;
+                        
+                        updateBoatHeading();
+                        updateMotionTelemetry();
+                    }
+                } catch (error) {
+                    console.error('❌ Error processing IMU message:', error);
+                }
+            });
+            
+            topicStatus['/wamv/sensors/imu/imu/data'].subscribed = true;
+            subscribedTopics++;
+            console.log('✅ Subscribed to /wamv/sensors/imu/imu/data');
+            
+            // Pose (for speed calculation and heading backup)
+            let lastPose = null;
+            let lastTime = Date.now();
+            
+            const poseTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/wamv/pose',
+                messageType: 'geometry_msgs/Pose'
+            });
+            
+            poseTopic.subscribe((message) => {
+                try {
+                    topicStatus['/wamv/pose'].lastMessage = Date.now();
+                    topicStatus['/wamv/pose'].messageCount++;
+                    
+                    if (message && message.position) {
+                        // Calculate speed
+                        const now = Date.now();
+                        const dt = (now - lastTime) / 1000.0;
+                        
+                        if (lastPose && dt > 0) {
+                            const dx = message.position.x - lastPose.position.x;
+                            const dy = message.position.y - lastPose.position.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            boatState.speed = (distance / dt) * 1.944; // m/s to knots
+                            updateMotionTelemetry();
+                        }
+                        
+                        // Backup heading from pose if IMU not available
+                        if (boatState.heading === 0 && message.orientation) {
+                            const q = message.orientation;
+                            const yaw = Math.atan2(
+                                2.0 * (q.w * q.z + q.x * q.y),
+                                1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+                            );
+                            boatState.heading = (yaw * 180 / Math.PI + 360) % 360;
+                            updateBoatHeading();
+                        }
+                        
+                        lastPose = message;
+                        lastTime = now;
+                    }
+                } catch (error) {
+                    console.error('❌ Error processing Pose message:', error);
+                }
+            });
+            
+            topicStatus['/wamv/pose'].subscribed = true;
+            subscribedTopics++;
+            console.log('✅ Subscribed to /wamv/pose');
+            
+            // Wind Direction
+            const windDirTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/vrx/debug/wind/direction',
+                messageType: 'std_msgs/Float32'
+            });
+            
+            windDirTopic.subscribe((message) => {
+                try {
+                    topicStatus['/vrx/debug/wind/direction'].lastMessage = Date.now();
+                    topicStatus['/vrx/debug/wind/direction'].messageCount++;
+                    
+                    if (message && message.data !== undefined) {
+                        boatState.wind.direction = (message.data * 180 / Math.PI + 360) % 360;
+                        updateEnvironmentTelemetry();
+                    }
+                } catch (error) {
+                    console.error('❌ Error processing Wind Direction message:', error);
+                }
+            });
+            
+            topicStatus['/vrx/debug/wind/direction'].subscribed = true;
+            subscribedTopics++;
+            console.log('✅ Subscribed to /vrx/debug/wind/direction');
+            
+            // Wind Speed
+            const windSpeedTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/vrx/debug/wind/speed',
+                messageType: 'std_msgs/Float32'
+            });
+            
+            windSpeedTopic.subscribe((message) => {
+                try {
+                    topicStatus['/vrx/debug/wind/speed'].lastMessage = Date.now();
+                    topicStatus['/vrx/debug/wind/speed'].messageCount++;
+                    
+                    if (message && message.data !== undefined) {
+                        boatState.wind.speed = message.data * 1.944; // m/s to knots
+                        updateEnvironmentTelemetry();
+                    }
+                } catch (error) {
+                    console.error('❌ Error processing Wind Speed message:', error);
+                }
+            });
+            
+            topicStatus['/vrx/debug/wind/speed'].subscribed = true;
+            subscribedTopics++;
+            console.log('✅ Subscribed to /vrx/debug/wind/speed');
+            
+            updateTopicsStatus();
+            console.log('✅ All topics subscribed');
+        }
+        
+        // ============================================
+        // BOAT POSITION UPDATE
+        // ============================================
+        function updateBoatPosition() {
+            const { lat, lon } = boatState.position;
+            
+            console.log('🚤 Updating boat position:', lat, lon);
+            
+            // Update marker position
+            boatMarker.setLatLng([lat, lon]);
+            
+            // Add to path trail
+            pathTrail.push([lat, lon]);
+            
+            // Limit trail length (keep last 1000 points)
+            if (pathTrail.length > 1000) {
+                pathTrail.shift();
+            }
+            
+            // Update path polyline
+            if (pathPolyline) {
+                pathPolyline.setLatLngs(pathTrail);
+            } else {
+                pathPolyline = L.polyline(pathTrail, {
+                    color: '#4CAF50',
+                    weight: 3,
+                    opacity: 0.6,
+                    className: 'path-trail'
+                }).addTo(mainMap);
+                console.log('✅ Path trail created');
+            }
+        }
+        
+        // ============================================
+        // TELEMETRY UPDATE FUNCTIONS
+        // ============================================
+        
+        // Helper function to update value with animation
+        function updateValue(elementId, value, format = null) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            
+            let displayValue = value;
+            if (format === 'float') {
+                displayValue = parseFloat(value).toFixed(2);
+            } else if (format === 'int') {
+                displayValue = Math.round(value).toString();
+            } else if (format === 'heading') {
+                displayValue = Math.round(value).toString().padStart(3, '0');
+            } else if (format === 'latlon') {
+                displayValue = parseFloat(value).toFixed(6);
+            }
+            
+            if (el.textContent !== displayValue) {
+                el.textContent = displayValue;
+                el.classList.add('updated');
+                setTimeout(() => el.classList.remove('updated'), 500);
+            }
+        }
+        
+        // 1. Position Data Telemetry
+        function updatePositionTelemetry() {
+            const { lat, lon, alt } = boatState.position;
+            updateValue('lat-value', lat, 'latlon');
+            updateValue('lon-value', lon, 'latlon');
+            updateValue('altitude-value', alt, 'float');
+        }
+        
+        // 2. Motion Data Telemetry
+        function updateMotionTelemetry() {
+            updateValue('speed-value', boatState.speed, 'float');
+            updateValue('heading-value', boatState.heading, 'heading');
+            updateValue('turn-rate-value', boatState.turnRate, 'float');
+        }
+        
+        // 3. Environment Telemetry
+        function updateEnvironmentTelemetry() {
+            const windDir = boatState.wind.direction;
+            const windDirDeg = Math.round(windDir);
+            
+            // Convert degrees to cardinal direction
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                              'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const directionIndex = Math.round(windDir / 22.5) % 16;
+            const windCardinal = directions[directionIndex];
+            
+            document.getElementById('wind-direction-full').textContent = 
+                `${windCardinal} (${windDirDeg}°)`;
+            
+            updateValue('wind-speed-value', boatState.wind.speed, 'float');
+            
+            // Wave height (if available)
+            const waveEl = document.getElementById('wave-height-value');
+            if (boatState.waveHeight !== null) {
+                updateValue('wave-height-value', boatState.waveHeight, 'float');
+            } else {
+                waveEl.textContent = 'N/A';
+            }
+        }
+        
+        // 4. Mission Status Telemetry
+        function updateMissionTelemetry() {
+            const wp = boatState.waypoint;
+            
+            if (wp.total > 0) {
+                updateValue('waypoint-current', wp.current, 'int');
+                updateValue('waypoint-total', wp.total, 'int');
+                updateValue('waypoint-distance', wp.distance, 'int');
+                
+                // Calculate ETA
+                if (boatState.speed > 0 && wp.distance > 0) {
+                    const etaSeconds = (wp.distance / (boatState.speed * 0.514)) / 1.944; // knots to m/s
+                    const minutes = Math.floor(etaSeconds / 60);
+                    const seconds = Math.floor(etaSeconds % 60);
+                    document.getElementById('waypoint-eta').textContent = 
+                        `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                } else {
+                    document.getElementById('waypoint-eta').textContent = '--';
+                }
+                
+                // Progress bar
+                const progress = (wp.current / wp.total) * 100;
+                document.getElementById('waypoint-progress').style.width = progress + '%';
+            } else {
+                document.getElementById('waypoint-current').textContent = '--';
+                document.getElementById('waypoint-total').textContent = '--';
+                document.getElementById('waypoint-distance').textContent = '--';
+                document.getElementById('waypoint-eta').textContent = '--';
+            }
+            
+            // Mission status text
+            const statusEl = document.getElementById('mission-status');
+            statusEl.textContent = wp.status || 'Waiting...';
+            
+            // Color code status
+            if (wp.status && wp.status.toLowerCase().includes('error')) {
+                statusEl.className = 'telemetry-value-small status-text status-value status-disconnected';
+            } else if (wp.status && (wp.status.toLowerCase().includes('warning') || wp.status.toLowerCase().includes('waiting'))) {
+                statusEl.className = 'telemetry-value-small status-text status-value status-warning';
+            } else {
+                statusEl.className = 'telemetry-value-small status-text status-value status-connected';
+            }
+        }
+        
+        // ============================================
+        // BOAT HEADING UPDATE
+        // ============================================
+        function updateBoatHeading() {
+            const heading = boatState.heading;
+            
+            console.log('🧭 Updating boat heading:', heading.toFixed(1), 'degrees');
+            
+            // Rotate boat marker triangle to match heading
+            // Note: Heading 0° = North, but CSS rotate 0° = East
+            // So we subtract 90° to align: North (0°) = rotate(-90°)
+            const rotationAngle = heading - 90;
+            
+            const indicator = document.getElementById('boat-heading-indicator');
+            if (indicator) {
+                indicator.style.transform = `rotate(${rotationAngle}deg)`;
+                console.log('   → CSS rotation applied:', rotationAngle.toFixed(1), 'degrees');
+            } else {
+                console.warn('⚠️ Boat heading indicator element not found');
+            }
+        }
+        
+        // ============================================
+        // WAYPOINT MANAGEMENT
+        // ============================================
+        function addWaypoint(lat, lon, number) {
+            const waypointIcon = L.divIcon({
+                className: 'waypoint-marker',
+                html: `<div style="
+                    background: #ffaa00;
+                    color: #0a0a0a;
+                    border-radius: 50%;
+                    width: 30px;
+                    height: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                    font-family: 'Roboto Mono', monospace;
+                    border: 2px solid #00ff88;
+                    box-shadow: 0 0 10px rgba(255, 170, 0, 0.6);
+                ">${number}</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+            
+            const marker = L.marker([lat, lon], { icon: waypointIcon })
+                .addTo(mainMap)
+                .bindPopup(`Waypoint ${number}`);
+            
+            waypointMarkers.push(marker);
+            console.log(`✅ Waypoint ${number} added at:`, lat, lon);
+            return marker;
+        }
+        
+        function setPlannedPath(waypoints) {
+            if (plannedPathPolyline) {
+                mainMap.removeLayer(plannedPathPolyline);
+            }
+            
+            const path = waypoints.map(wp => [wp.lat, wp.lon]);
+            plannedPathPolyline = L.polyline(path, {
+                color: '#ffaa00',
+                weight: 2,
+                dashArray: '10, 5',
+                opacity: 0.8,
+                className: 'planned-path'
+            }).addTo(mainMap);
+            
+            console.log('✅ Planned path set with', waypoints.length, 'waypoints');
+        }
+        
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        function init() {
+            console.log('🚤 ==========================================');
+            console.log('🚤 WAM-V Dashboard Initializing...');
+            console.log('🚤 ==========================================');
+            
+            // Initialize maps
+            initMaps();
+            
+            // Connect to ROS
+            connectROS();
+            
+            // Add test waypoints (for demo)
+            console.log('📍 Adding test waypoints...');
+            addWaypoint(-33.7225, 150.6745, 1);
+            addWaypoint(-33.723, 150.675, 2);
+            
+            // Set test planned path
+            setPlannedPath([
+                { lat: -33.722, lon: 150.674 },
+                { lat: -33.7225, lon: 150.6745 },
+                { lat: -33.723, lon: 150.675 }
+            ]);
+            
+            console.log('✅ Dashboard initialized');
+            console.log('📊 Waiting for ROS connection and data...');
+        }
+        
+        // Start when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Page loaded, initializing...');
+            init();
+        });
+        
+        // Also try on load as backup
+        window.addEventListener('load', () => {
+            console.log('🚀 Window loaded');
+            if (!rosConnected) {
+                console.log('⚠️ Not connected yet, retrying...');
+                connectROS();
+            }
+        });
+    </script>
+    
+    <!-- Debug Panel -->
+    <div id="debug-panel">
+        <h3>🔍 Debug Panel (Press 'D' to toggle)</h3>
+        <div id="debug-panel-content"></div>
+    </div>
+</body>
+</html>

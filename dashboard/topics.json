@@ -1,0 +1,19 @@
+{
+  "required": {
+    "gps": "/wamv/sensors/gps/gps/fix",
+    "imu": "/wamv/sensors/imu/imu/data",
+    "pose": "/wamv/pose"
+  },
+  "optional": {
+    "wind_dir": "/vrx/debug/wind/direction",
+    "wind_speed": "/vrx/debug/wind/speed",
+    "waypoint": "/wamv/mission/current_waypoint"
+  },
+  "fallbacks": {
+    "heading": ["/wamv/sensors/imu/imu/data", "/wamv/pose"],
+    "position": ["/wamv/sensors/gps/gps/fix", "/wamv/pose"],
+    "wind": ["/vrx/debug/wind/direction", "/vrx/debug/wind/speed"]
+  },
+  "note": "Mission waypoint topic may not exist - dashboard should handle gracefully"
+}
+

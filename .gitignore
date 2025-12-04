@@ -1,7 +1,68 @@
-syntax: glob
+# ROS 2
+install/
+build/
+log/
+.ros/
 
-.DS_Store
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# IDE
+.vscode/
+.idea/
 *.swp
-*.orig
-*.*~
-*.pyc
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+/tmp/
+
+# Gazebo
+~/.gazebo/
+.gazebo/
+
+# VRX specific
+*.sdf.bak
+*.world.bak
+
+# Dashboard
+node_modules/
+*.map
+*.min.js.map
+
+# Personal/private
+*.key
+*.pem
+secrets/
+.env
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+
+# Test files
+*.test
+test_results/

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Boat Marker Rotation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 50px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-container {
+            display: flex;
+            gap: 50px;
+            margin-top: 30px;
+        }
+        .marker-demo {
+            text-align: center;
+        }
+        .boat-marker-container {
+            background: transparent;
+            border: none;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px;
+        }
+        .boat-marker {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 20px solid #2196F3;
+            position: relative;
+            transform-origin: center center;
+            transition: transform 0.2s ease;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+        .boat-marker::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 20px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #1976D2;
+        }
+        .boat-marker::after {
+            content: '';
+            position: absolute;
+            left: -3px;
+            top: -2px;
+            width: 6px;
+            height: 6px;
+            background: #FFC107;
+            border-radius: 50%;
+            border: 1px solid #fff;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        input[type="range"] {
+            width: 300px;
+        }
+        .heading-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚤 Boat Marker Rotation Test</h1>
+    <p>Adjust the slider to see the boat marker rotate. Heading 0° = North (pointing up).</p>
+    
+    <div class="test-container">
+        <div class="marker-demo">
+            <h3>Boat Marker</h3>
+            <div class="boat-marker-container">
+                <div class="boat-marker" id="test-marker"></div>
+            </div>
+            <div class="controls">
+                <label>
+                    Heading (degrees): 
+                    <input type="range" id="heading-slider" min="0" max="360" value="0" step="1">
+                    <span id="heading-value">0</span>°
+                </label>
+                <div class="heading-display" id="heading-display">North (0°)</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const slider = document.getElementById('heading-slider');
+        const marker = document.getElementById('test-marker');
+        const headingValue = document.getElementById('heading-value');
+        const headingDisplay = document.getElementById('heading-display');
+        
+        const directions = ['North', 'NNE', 'NE', 'ENE', 'East', 'ESE', 'SE', 'SSE', 
+                          'South', 'SSW', 'SW', 'WSW', 'West', 'WNW', 'NW', 'NNW'];
+        
+        slider.addEventListener('input', (e) => {
+            const heading = parseFloat(e.target.value);
+            headingValue.textContent = heading;
+            
+            // Convert heading to CSS rotation
+            // Heading 0° = North (pointing up) = CSS rotate(-90°)
+            const rotationAngle = heading - 90;
+            marker.style.transform = `rotate(${rotationAngle}deg)`;
+            
+            // Display direction
+            const directionIndex = Math.round(heading / 22.5) % 16;
+            headingDisplay.textContent = `${directions[directionIndex]} (${heading}°)`;
+        });
+        
+        // Initialize
+        marker.style.transform = 'rotate(-90deg)'; // North
+    </script>
+</body>
+</html>
+
