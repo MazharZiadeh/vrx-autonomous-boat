@@ -1,70 +1,144 @@
-# Virtual RobotX (VRX)
-This repository is the home to the source code and software documentation for the VRX simulation environment, which supports simulation of unmanned surface vehicles in marine environments.
-* Designed in coordination with RobotX organizers, this project provides arenas and tasks similar to those featured in past and future RobotX competitions, as well as a description of the WAM-V platform.
-* For RobotX competitors this simulation environment is intended as a first step toward developing tools prototyping solutions in advance of physical on-water testing.
-* We also welcome users with simulation needs beyond RobotX. As we continue to improve the environment, we hope to offer support to a wide range of potential applications.
+# 🚤 VRX Autonomous Boat System
 
-## A new modernization development: Gazebo Harmonic and ROS 2 Jazzy
+Real-time autonomous boat mission planning and execution system with web-based dashboard for VRX (Virtual RobotX) simulation.
 
-> [!NOTE]
-> This development effort was executed by the
-> [Honu Robotics](https://honurobotics.com) team, thanks to the sponsorship
-> of [RoboNation](https://robonation.org/).
+## ✨ Features
 
-We are happy to announce that the repository has been ported to use supported
-versions of Gazebo and ROS 2:
-  * Code is now working with Gazebo Harmonic and ROS 2 Jazzy
-  * This is the recommended configuration for new users.
-  * Users who wish to continue running Gazebo Garden and ROS 2 Humble can still do so using the `humble` branch of this repository.
+- 🗺️ **Real-time Web Dashboard** - Mission control aesthetic with dual-map view
+- 📊 **Live Telemetry** - Position, heading, speed, wind, and mission status
+- 🎯 **Waypoint Navigation** - Autonomous waypoint following with obstacle avoidance
+- 🔄 **Dynamic Re-planning** - Adaptive mission execution
+- 🌐 **ROS 2 Integration** - Full ROS 2 Jazzy support with rosbridge WebSocket
+- 🎨 **Professional UI** - Dark theme with neon accents, inspired by mission control
 
-## The VRX Competition
-The VRX environment is also the "virtual venue" for the [VRX Competition](https://github.com/osrf/vrx/wiki). Please see our Wiki for tutorials and links to registration and documentation relevant to the virtual competition.
+## 🚀 Quick Start
 
-[![VRX](images/sydney_regatta_gzsim.png)](https://vimeo.com/851696025 "Gazebo Virtual RobotX v. 2.3 - Click to Watch!")
-![ROS 2 CI](https://github.com/osrf/vrx/workflows/ROS%202%20CI/badge.svg)
+### Prerequisites
+- ROS 2 Jazzy
+- Gazebo Harmonic
+- VRX workspace built
 
-## Getting Started
+### Launch Everything
 
- * Watch the [Release 2.3 Highlight Video](https://vimeo.com/851696025).
- * The [VRX Wiki](https://github.com/osrf/vrx/wiki) provides documentation and tutorials.
- * The instructions assume a basic familiarity with the ROS environment and Gazebo.  If these tools are new to you, we recommend starting with the excellent [ROS Tutorials](http://wiki.ros.org/ROS/Tutorials)
- * For technical problems, please use the [project issue tracker](https://github.com/osrf/vrx/issues) to describe your problem or request support.
+```bash
+cd ~/final_stand/vrx/dashboard
+./launch_everything.sh
+```
 
-## Reference
+This will:
+1. Launch VRX environment
+2. Spawn WAM-V boat
+3. Start rosbridge WebSocket server
+4. Start dashboard HTTP server
+5. Open browser automatically
 
-If you use the VRX simulation in your work, please cite our summary publication, [Toward Maritime Robotic Simulation in Gazebo](https://wiki.nps.edu/display/BB/Publications?preview=/1173263776/1173263778/PID6131719.pdf):
+Dashboard will be available at: **http://localhost:8000/dashboard.html**
+
+## 📁 Project Structure
 
 ```
-@InProceedings{bingham19toward,
-  Title                    = {Toward Maritime Robotic Simulation in Gazebo},
-  Author                   = {Brian Bingham and Carlos Aguero and Michael McCarrin and Joseph Klamo and Joshua Malia and Kevin Allen and Tyler Lum and Marshall Rawson and Rumman Waqar},
-  Booktitle                = {Proceedings of MTS/IEEE OCEANS Conference},
-  Year                     = {2019},
-  Address                  = {Seattle, WA},
-  Month                    = {October}
-}
+vrx/
+├── dashboard/              # Web dashboard and scripts
+│   ├── dashboard.html      # Main dashboard (single file)
+│   ├── launch_everything.sh # Master launcher
+│   ├── diagnose.sh         # System diagnostics
+│   ├── rosbridge_fixed.launch.py # Fixed rosbridge config
+│   └── ...
+├── vrx_ws/                 # VRX workspace (separate)
+│   └── src/
+│       └── wamv_autonomy/  # Autonomy node package
+└── ...
 ```
-## 🛠️ Getting Help and Contributing
 
-VRX is an open source project supported by the community. If you run into issues, need help, or have suggestions:
+## 🔧 System Components
 
-- 💬 **Ask for help or report bugs** by opening an [issue](https://github.com/osrf/vrx/issues). Please include as much detail as possible, including:
-  - Steps to reproduce the issue
-  - Your system setup (OS, ROS version, etc.)
-  - Relevant error messages or logs
+### Dashboard
+- **Real-time map** with Leaflet.js
+- **MiniMap** overview in corner
+- **Telemetry panels** with live updates
+- **Debug panel** (press 'D' key)
+- **Mission control aesthetic**
 
-- 🛠️ **Found a fix or improvement?** We welcome contributions! Submit a [pull request](https://github.com/osrf/vrx/pulls) with your proposed changes.
+### Autonomy Node
+- GPS-based waypoint following
+- Heading and distance control
+- Thrust command publishing
+- ROS 2 Jazzy compatible
 
-- 📫 **Please do not email the maintainers with technical questions.** Using GitHub issues helps ensure that questions and solutions are visible and searchable for the whole community.
+### Integration
+- **rosbridge** for WebSocket communication
+- **Fixed launch file** for ROS 2 Jazzy parameter compatibility
+- **Complete error handling** and retry logic
 
-Your feedback and participation help make VRX better for everyone — thank you for contributing!
+## 📊 Dashboard Features
 
-## Contributors
+- ✅ Real-time boat position tracking
+- ✅ Heading indicator (rotating triangle)
+- ✅ Path trail visualization
+- ✅ Planned path display
+- ✅ Waypoint markers
+- ✅ Live telemetry updates
+- ✅ Connection status monitoring
+- ✅ Debug panel for troubleshooting
 
-> [!NOTE]
-> The [Honu Robotics](https://honurobotics.com) team, thanks to the
-> sponsorship of [RoboNation](https://robonation.org/) is currently the
-> maintainer of this repository.
+## 🐛 Troubleshooting
 
-We continue to receive important improvements from the community.  We have done our best to document this on our [Contributors Wiki](https://github.com/osrf/vrx/wiki/Contributors).
+### Dashboard Shows "Disconnected"
+```bash
+cd ~/final_stand/vrx/dashboard
+source /opt/ros/jazzy/setup.bash
+ros2 launch $(pwd)/rosbridge_fixed.launch.py
+```
 
+### Check System Status
+```bash
+cd ~/final_stand/vrx/dashboard
+./diagnose.sh
+```
+
+### Stop Everything
+```bash
+cd ~/final_stand/vrx/dashboard
+./stop_everything.sh
+```
+
+## 📝 Documentation
+
+- `dashboard/QUICK_START.md` - Quick start guide
+- `dashboard/HACKATHON_CHECKLIST.md` - Demo checklist
+- `dashboard/INTEGRATION_COMPLETE.md` - Integration details
+- `dashboard/SUCCESS.md` - Success indicators
+
+## 🎯 Demo Scenarios
+
+1. **Basic Navigation** - Waypoint following with real-time tracking
+2. **Obstacle Avoidance** - Dynamic re-planning around obstacles
+3. **Multi-Waypoint Mission** - Sequential waypoint navigation
+
+## 🛠️ Development
+
+### Adding New Features
+- Dashboard: Edit `dashboard/dashboard.html`
+- Autonomy: Edit `vrx_ws/src/wamv_autonomy/`
+- Launch: Edit `dashboard/launch_everything.sh`
+
+### Testing
+```bash
+cd ~/final_stand/vrx/dashboard
+./test_integration.sh
+```
+
+## 📄 License
+
+This project extends the VRX simulation environment. See original VRX license.
+
+## 🙏 Acknowledgments
+
+- VRX (Virtual RobotX) - OSRF
+- ROS 2 Jazzy
+- Leaflet.js for mapping
+- rosbridge for WebSocket integration
+
+---
+
+**Status**: ✅ Fully Operational - Ready for Hackathon Demo! 🚤
