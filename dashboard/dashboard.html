@@ -313,6 +313,18 @@
             background: #00ff88;
         }
         
+        /* Waypoint Labels */
+        .waypoint-label {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #fff !important;
+            font-weight: bold;
+            font-size: 11px;
+            text-align: center;
+            font-family: 'Roboto Mono', monospace;
+        }
+        
         /* Debug Panel */
         #debug-panel {
             position: fixed;
@@ -511,8 +523,8 @@
         let boatMarker, boatIcon;
         let pathTrail = [];
         let pathPolyline = null;
-        let waypointMarkers = [];
-        let plannedPathPolyline = null;
+        let waypointMarkers = [];  // Array of waypoint markers
+        let plannedPathPolyline = null;  // Planned path line
         
         // Boat state
         let boatState = {
@@ -892,6 +904,167 @@
             topicStatus['/vrx/debug/wind/speed'].subscribed = true;
             subscribedTopics++;
             console.log('✅ Subscribed to /vrx/debug/wind/speed');
+            
+            // ============================================
+            // WAYPOINT VISUALIZATION
+            // ============================================
+            
+            // Subscribe to waypoints topic
+            const waypointsTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/wamv/mission/waypoints',
+                messageType: 'geometry_msgs/PoseArray'
+            });
+            
+            waypointsTopic.subscribe((message) => {
+                try {
+                    console.log('📍 Received waypoints:', message.poses.length);
+                    
+                    // Clear old waypoint markers
+                    waypointMarkers.forEach(marker => mainMap.removeLayer(marker));
+                    waypointMarkers = [];
+                    
+                    // Clear old planned path
+                    if (plannedPathPolyline) {
+                        mainMap.removeLayer(plannedPathPolyline);
+                        plannedPathPolyline = null;
+                    }
+                    
+                    // Add new waypoint markers
+                    const waypointPositions = [];
+                    message.poses.forEach((pose, index) => {
+                        // PoseArray stores: x=longitude, y=latitude (from waypoint_navigator.py)
+                        const lat = pose.position.y;  // y = latitude
+                        const lon = pose.position.x;  // x = longitude
+                        
+                        waypointPositions.push([lat, lon]);
+                        
+                        // Create numbered waypoint marker
+                        const marker = L.circleMarker([lat, lon], {
+                            radius: 10,
+                            fillColor: '#ffaa00',  // Amber
+                            color: '#00ff88',  // Green border
+                            weight: 2,
+                            fillOpacity: 0.9
+                        }).addTo(mainMap);
+                        
+                        // Add number label
+                        marker.bindTooltip(`WP ${index + 1}`, {
+                            permanent: true,
+                            direction: 'center',
+                            className: 'waypoint-label'
+                        });
+                        
+                        marker.bindPopup(`
+                            <b>Waypoint ${index + 1}</b><br>
+                            Lat: ${lat.toFixed(6)}<br>
+                            Lon: ${lon.toFixed(6)}
+                        `);
+                        
+                        waypointMarkers.push(marker);
+                    });
+                    
+                    // Draw planned path (dashed line connecting waypoints)
+                    if (waypointPositions.length > 1) {
+                        plannedPathPolyline = L.polyline(waypointPositions, {
+                            color: '#ffaa00',
+                            weight: 3,
+                            opacity: 0.7,
+                            dashArray: '10, 5'
+                        }).addTo(mainMap);
+                    }
+                    
+                    // Fit map to show all waypoints
+                    if (waypointPositions.length > 0) {
+                        mainMap.fitBounds(waypointPositions, { padding: [50, 50] });
+                    }
+                } catch (error) {
+                    console.error('❌ Error processing waypoints:', error);
+                }
+            });
+            
+            topicStatus['/wamv/mission/waypoints'] = { subscribed: true, lastMessage: null, messageCount: 0 };
+            subscribedTopics++;
+            console.log('✅ Subscribed to /wamv/mission/waypoints');
+            
+            // Subscribe to current waypoint topic
+            const currentWPTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/wamv/mission/current_waypoint',
+                messageType: 'std_msgs/Int32'
+            });
+            
+            currentWPTopic.subscribe((message) => {
+                try {
+                    const currentIdx = message.data;
+                    console.log('🎯 Current waypoint:', currentIdx);
+                    
+                    // Update mission telemetry
+                    if (waypointMarkers.length > 0) {
+                        boatState.waypoint.current = currentIdx + 1;  // 1-indexed for display
+                        boatState.waypoint.total = waypointMarkers.length;
+                        updateMissionTelemetry();
+                    }
+                    
+                    // Highlight current waypoint
+                    waypointMarkers.forEach((marker, index) => {
+                        if (index === currentIdx) {
+                            // Current waypoint - green
+                            marker.setStyle({
+                                fillColor: '#00ff88',
+                                radius: 12,
+                                color: '#00ff88',
+                                weight: 3
+                            });
+                        } else if (index < currentIdx) {
+                            // Completed waypoints - gray
+                            marker.setStyle({
+                                fillColor: '#666',
+                                radius: 8,
+                                color: '#888',
+                                weight: 1
+                            });
+                        } else {
+                            // Pending waypoints - amber
+                            marker.setStyle({
+                                fillColor: '#ffaa00',
+                                radius: 10,
+                                color: '#00ff88',
+                                weight: 2
+                            });
+                        }
+                    });
+                } catch (error) {
+                    console.error('❌ Error processing current waypoint:', error);
+                }
+            });
+            
+            topicStatus['/wamv/mission/current_waypoint'] = { subscribed: true, lastMessage: null, messageCount: 0 };
+            subscribedTopics++;
+            console.log('✅ Subscribed to /wamv/mission/current_waypoint');
+            
+            // Subscribe to mission status
+            const missionStatusTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/wamv/mission/status',
+                messageType: 'std_msgs/String'
+            });
+            
+            missionStatusTopic.subscribe((message) => {
+                try {
+                    const status = message.data;
+                    console.log('📊 Mission status:', status);
+                    
+                    boatState.waypoint.status = status;
+                    updateMissionTelemetry();
+                } catch (error) {
+                    console.error('❌ Error processing mission status:', error);
+                }
+            });
+            
+            topicStatus['/wamv/mission/status'] = { subscribed: true, lastMessage: null, messageCount: 0 };
+            subscribedTopics++;
+            console.log('✅ Subscribed to /wamv/mission/status');
             
             updateTopicsStatus();
             console.log('✅ All topics subscribed');
